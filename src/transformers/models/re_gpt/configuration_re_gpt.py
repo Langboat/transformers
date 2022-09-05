@@ -30,7 +30,6 @@ RE_GPT_PRETRAINED_CONFIG_ARCHIVE_MAP = {
 }
 
 
-
 class Re_gptConfig(PretrainedConfig):
     r"""
     This is the configuration class to store the configuration of a [`Re_gptModel`]. It is used to instantiate a GPT
@@ -121,18 +120,18 @@ class Re_gptConfig(PretrainedConfig):
         use_cache=True,
         bos_token_id=50256,
         eos_token_id=50256,
-        dec_cross_attn_layers=(5,128),
+        dec_cross_attn_layers=(5, 128),
         chunk_size=64,
         dim_head=64,
-        enc_depth = 2,
-        enc_cross_attn_layers = None,
-        enc_heads = 16,
-        dec_heads = 16,
-        enc_att_dropout = 0.0,
-        enc_ff_dropout = 0.0,
-        dec_attn_dropout = 0.25,
-        dec_ff_dropout = 0.25,
-        ff_mult = 4,
+        enc_depth=2,
+        enc_cross_attn_layers=None,
+        enc_heads=16,
+        dec_heads=16,
+        enc_att_dropout=0.0,
+        enc_ff_dropout=0.0,
+        dec_attn_dropout=0.25,
+        dec_ff_dropout=0.25,
+        ff_mult=4,
         **kwargs
     ):
         self.vocab_size = vocab_size

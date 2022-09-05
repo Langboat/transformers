@@ -16,13 +16,10 @@
 
 
 import os
-from this import d
 from typing import Optional, Tuple, Union
-
 import torch
-from torch import nn,einsum
+from torch import nn, einsum
 import torch.utils.checkpoint
-from torch import nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 from einops import rearrange, repeat
 import torch.nn.functional as F
@@ -53,28 +50,44 @@ RE_GPT_PRETRAINED_MODEL_ARCHIVE_LIST = [
 
 _CHECKPOINT_FOR_DOC = ""
 
+
+# Copied from https://github.com/lucidrains/RETRO-pytorch.retro_pytorch
 def exists(val):
     return val is not None
+
+
+# Copied from https://github.com/lucidrains/RETRO-pytorch.retro_pytorch
 def default(val, d):
     return val if exists(val) else d
+
+
+# Copied from https://github.com/lucidrains/RETRO-pytorch.retro_pytorch
 def apply_rotary_pos_emb(t, freqs):
-    seq_len, rot_dim = t.shape[-2], freqs.shape[-1]
+    rot_dim = freqs.shape[-1]
     t, t_pass = t[..., :rot_dim], t[..., rot_dim:]
     t = (t * freqs.cos()) + (rotate_half(t) * freqs.sin())
-    return torch.cat((t, t_pass), dim = -1)
+    return torch.cat((t, t_pass), dim=-1)
+
+
+# Copied from https://github.com/lucidrains/RETRO-pytorch.retro_pytorch
 def rotate_half(x):
-    x = rearrange(x, '... (j d) -> ... j d', j = 2)
-    x1, x2 = x.unbind(dim = -2)
-    return torch.cat((-x2, x1), dim = -1)
-def cast_tuple(val, num = 1):
+    x = rearrange(x, '... (j d) -> ... j d', j=2)
+    x1, x2 = x.unbind(dim=-2)
+    return torch.cat((-x2, x1), dim=-1)
+
+
+# Copied from https://github.com/lucidrains/RETRO-pytorch.retro_pytorch
+def cast_tuple(val, num=1):
     return val if isinstance(val, tuple) else ((val,) * num)
 
+
+# Copied from https://github.com/lucidrains/RETRO-pytorch.retro_pytorch
 class RMSNorm(nn.Module):
     def __init__(
         self,
         dim,
         *,
-        eps = 1e-8
+        eps=1e-8
     ):
         super().__init__()
         self.eps = eps
@@ -82,29 +95,38 @@ class RMSNorm(nn.Module):
         self.weight = nn.Parameter(torch.ones(dim))
 
     def forward(self, x):
-        norm = x.norm(keepdim = True, dim = -1) * self.scale
-        return (x / norm.clamp(min = self.eps)) * self.weight
+        norm = x.norm(keepdim=True, dim=-1) * self.scale
+        return (x / norm.clamp(min=self.eps)) * self.weight
+
+
+# Copied from https://github.com/lucidrains/RETRO-pytorch.retro_pytorch
 class PreNorm(nn.Module):
-    def __init__(self, dim, fn, norm_klass = RMSNorm):
+    def __init__(self, dim, fn, norm_klass=RMSNorm):
         super().__init__()
         self.fn = fn
         self.norm = norm_klass(dim)
 
     def forward(self, x, *args, **kwargs):
         return self.fn(self.norm(x), *args, **kwargs) + x
+
+
+# Copied from https://github.com/lucidrains/RETRO-pytorch.retro_pytorch
 class RotaryEmbedding(nn.Module):
     def __init__(self, dim):
         super().__init__()
         inv_freq = 1. / (10000 ** (torch.arange(0, dim, 2).float() / dim))
         self.register_buffer('inv_freq', inv_freq)
 
-    def forward(self, max_seq_len, *, device, offset = 0):
-        seq = torch.arange(max_seq_len, device = device) + offset
+    def forward(self, max_seq_len, *, device, offset=0):
+        seq = torch.arange(max_seq_len, device=device) + offset
         freqs = einsum('i , j -> i j', seq.type_as(self.inv_freq), self.inv_freq)
-        emb = torch.cat((freqs, freqs), dim = -1)
+        emb = torch.cat((freqs, freqs), dim=-1)
         return rearrange(emb, 'n d -> 1 1 n d')
+
+
+# Copied from https://github.com/lucidrains/RETRO-pytorch.retro_pytorch
 class PostNorm(nn.Module):
-    def __init__(self, dim, fn, scale_residual = 1, norm_klass = RMSNorm):
+    def __init__(self, dim, fn, scale_residual=1, norm_klass=RMSNorm):
         super().__init__()
         self.fn = fn
         self.scale_residual = scale_residual
@@ -114,6 +136,9 @@ class PostNorm(nn.Module):
         residual = x * self.scale_residual
         out = self.fn(x, *args, **kwargs) + residual
         return self.norm(out)
+
+
+# Copied from https://github.com/lucidrains/RETRO-pytorch.retro_pytorch
 class ChunkedCrossAttention(nn.Module):
     def __init__(
         self,
@@ -122,13 +147,13 @@ class ChunkedCrossAttention(nn.Module):
     ):
         super().__init__()
         dim = config.hidden_size
-        dim_head = config.dim_head 
+        dim_head = config.dim_head
         heads = config.dec_heads
         dropout = config.dec_attn_dropout
         self.chunk_size = config.chunk_size
-        self.cross_attn = Attention(null_kv = True, dim=dim, dim_head=dim_head, heads=heads, dropout=dropout)
+        self.cross_attn = Attention(null_kv=True, dim=dim, dim_head=dim_head, heads=heads, dropout=dropout)
 
-    def forward(self, x, *, context_mask = None, context, pos_emb = None):
+    def forward(self, x, *, context_mask=None, context, pos_emb=None):
         device = x.device
         # derive variables
         chunk_size = self.chunk_size
@@ -144,7 +169,7 @@ class ChunkedCrossAttention(nn.Module):
 
         causal_padding = chunk_size - 1
 
-        x = F.pad(x, (0, 0, -causal_padding, causal_padding), value = 0.)
+        x = F.pad(x, (0, 0, -causal_padding, causal_padding), value=0.)
 
         # remove sequence which is ahead of the neighbors retrieved (during inference)
 
@@ -157,14 +182,14 @@ class ChunkedCrossAttention(nn.Module):
         # make sure queries positions are properly shifted to the future
 
         q_pos_emb, k_pos_emb = pos_emb
-        q_pos_emb = F.pad(q_pos_emb, (0, 0, -causal_padding, causal_padding), value = 0.)
+        q_pos_emb = F.pad(q_pos_emb, (0, 0, -causal_padding, causal_padding), value=0.)
 
-        k_pos_emb = repeat(k_pos_emb, 'b h n d -> b h (r n) d', r = num_retrieved)
+        k_pos_emb = repeat(k_pos_emb, 'b h n d -> b h (r n) d', r=num_retrieved)
         pos_emb = (q_pos_emb.to(device), k_pos_emb.to(device))
 
         # reshape so we have chunk to chunk attention, without breaking causality
 
-        x = rearrange(x, 'b (k n) d -> (b k) n d', k = num_chunks)
+        x = rearrange(x, 'b (k n) d -> (b k) n d', k=num_chunks)
         context = rearrange(context, 'b k r n d -> (b k) (r n) d')
 
         if exists(context_mask):
@@ -175,16 +200,17 @@ class ChunkedCrossAttention(nn.Module):
             context = context.to(device).to(dtype=x.dtype)
         if exists(context_mask):
             context_mask = context_mask.to(device).to(dtype=x.dtype)
-        out = self.cross_attn(x, context = context, mask = context_mask, pos_emb = pos_emb)
+        out = self.cross_attn(x, context=context, mask=context_mask, pos_emb=pos_emb)
 
         # reshape back to original sequence
 
-        out = rearrange(out, '(b k) n d -> b (k n) d', b = b)
+        out = rearrange(out, '(b k) n d -> b (k n) d', b=b)
 
         # pad back to original, with 0s at the beginning (which will be added to the residual and be fine)
 
-        out = F.pad(out, (0, 0, causal_padding, -causal_padding + seq_remain_len), value = 0.)
+        out = F.pad(out, (0, 0, causal_padding, -causal_padding + seq_remain_len), value=0.)
         return out
+
 
 # Copied from transformers.models.gpt_neo.modeling_gpt_neo.load_tf_weights_in_gpt_neo with gpt_neo->re_gpt
 def load_tf_weights_in_re_gpt(model, config, re_gpt_checkpoint_path):
@@ -285,7 +311,6 @@ class Re_gptSelfAttention(nn.Module):
 
         self.register_buffer("bias", bias)
         self.register_buffer("masked_bias", torch.tensor(-1e9))
-
         self.attn_dropout = nn.Dropout(float(config.attention_dropout))
         self.resid_dropout = nn.Dropout(float(config.resid_dropout))
 
@@ -323,11 +348,9 @@ class Re_gptSelfAttention(nn.Module):
         # Keep the attention weights computation in fp32 to avoid overflow issues
         query = query.to(torch.float32)
         key = key.to(torch.float32)
-
         attn_weights = torch.matmul(query, key.transpose(-1, -2))
-
         query_length, key_length = query.size(-2), key.size(-2)
-        causal_mask = self.bias[:, :, key_length - query_length : key_length, :key_length].to(torch.bool)
+        causal_mask = self.bias[:, :, key_length - query_length: key_length, :key_length].to(torch.bool)
         attn_weights = torch.where(causal_mask, attn_weights, self.masked_bias.to(attn_weights.dtype))
 
         if attention_mask is not None:
@@ -359,7 +382,6 @@ class Re_gptSelfAttention(nn.Module):
         query = self.q_proj(hidden_states)
         key = self.k_proj(hidden_states)
         value = self.v_proj(hidden_states)
-
         query = self._split_heads(query, self.num_heads, self.head_dim)
         key = self._split_heads(key, self.num_heads, self.head_dim)
         value = self._split_heads(value, self.num_heads, self.head_dim)
@@ -376,7 +398,6 @@ class Re_gptSelfAttention(nn.Module):
             present = None
 
         attn_output, attn_weights = self._attn(query, key, value, attention_mask, head_mask)
-
         attn_output = self._merge_heads(attn_output, self.num_heads, self.head_dim)
         attn_output = self.out_proj(attn_output)
         attn_output = self.resid_dropout(attn_output)
@@ -439,31 +460,31 @@ class Re_gptMLP(nn.Module):
         hidden_states = self.c_proj(hidden_states)
         hidden_states = self.dropout(hidden_states)
         return hidden_states
+
+
+# Copied from https://github.com/lucidrains/RETRO-pytorch.retro_pytorch
 class Attention(nn.Module):
     def __init__(
         self,
         dim,
         *,
-        context_dim = None,
-        dim_head = 64,
-        heads = 8,
-        causal = False,
-        dropout = 0.,
-        null_kv = False
+        context_dim=None,
+        dim_head=64,
+        heads=8,
+        causal=False,
+        dropout=0.,
+        null_kv=False
     ):
         super().__init__()
         context_dim = default(context_dim, dim)
-
         self.heads = heads
         self.scale = dim_head ** -0.5
         self.causal = causal
         inner_dim = dim_head * heads
-
         self.dropout = nn.Dropout(dropout)
-
-        self.to_q = nn.Linear(dim, inner_dim, bias = False)
-        self.to_k = nn.Linear(context_dim, inner_dim, bias = False)
-        self.to_v = nn.Linear(context_dim, inner_dim, bias = False)
+        self.to_q = nn.Linear(dim, inner_dim, bias=False)
+        self.to_k = nn.Linear(context_dim, inner_dim, bias=False)
+        self.to_v = nn.Linear(context_dim, inner_dim, bias=False)
         self.to_out = nn.Linear(inner_dim, dim)
 
         # allowing for attending to nothing (null function)
@@ -471,7 +492,7 @@ class Attention(nn.Module):
         self.null_k = nn.Parameter(torch.randn(inner_dim)) if null_kv else None
         self.null_v = nn.Parameter(torch.randn(inner_dim)) if null_kv else None
 
-    def forward(self, x, mask = None, context = None, pos_emb = None): 
+    def forward(self, x, mask=None, context=None, pos_emb=None):
         b, device, h, scale = x.shape[0], x.device, self.heads, self.scale
 
         kv_input = default(context, x)
@@ -479,7 +500,7 @@ class Attention(nn.Module):
         q, k, v = self.to_q(x), self.to_k(kv_input), self.to_v(kv_input)
         # split heads
 
-        q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h = h), (q, k, v))
+        q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h=h), (q, k, v))
 
         # scale
 
@@ -488,8 +509,7 @@ class Attention(nn.Module):
         # apply relative positional encoding (rotary embeddings)
 
         if exists(pos_emb):
-            q_pos_emb, k_pos_emb = cast_tuple(pos_emb, num = 2)
-
+            q_pos_emb, k_pos_emb = cast_tuple(pos_emb, num=2)
             q = apply_rotary_pos_emb(q, q_pos_emb)
             k = apply_rotary_pos_emb(k, k_pos_emb)
 
@@ -497,47 +517,42 @@ class Attention(nn.Module):
 
         if exists(self.null_k):
             nk, nv = self.null_k, self.null_v
-            nk, nv = map(lambda t: repeat(t, '(h d) -> b h 1 d', b = b, h = h), (nk, nv))
-            k = torch.cat((nk, k), dim = -2)
-            v = torch.cat((nv, v), dim = -2)
+            nk, nv = map(lambda t: repeat(t, '(h d) -> b h 1 d', b=b, h=h), (nk, nv))
+            k = torch.cat((nk, k), dim=-2)
+            v = torch.cat((nv, v), dim=-2)
 
         # derive query key similarities
 
         sim = einsum('b h i d, b h j d -> b h i j', q, k)
 
         # masking
-
         mask_value = -torch.finfo(sim.dtype).max
 
         if exists(mask):
             if exists(self.null_k):
-                mask = F.pad(mask, (1, 0), value = True)
-
+                mask = F.pad(mask, (1, 0), value=True)
             mask = rearrange(mask, 'b j -> b 1 1 j')
             sim = sim.masked_fill(~mask, mask_value)
 
         if self.causal:
             i, j = sim.shape[-2:]
-            causal_mask = torch.ones(i, j, device = device, dtype = torch.bool).triu(j - i + 1)
+            causal_mask = torch.ones(i, j, device=device, dtype=torch.bool).triu(j - i + 1)
             sim = sim.masked_fill(causal_mask, mask_value)
 
         # attention
-        attn = sim.softmax(dim = -1)
-
+        attn = sim.softmax(dim=-1)
         attn = self.dropout(attn)
-        #attn = attn.to(dtype=x.dtype)
         # aggregate
         out = einsum('b h i j, b h j d -> b h i d', attn, v)
-
         # merge heads
-
         out = rearrange(out, 'b h n d -> b n (h d)')
-        
         # combine heads linear out
         return self.to_out(out)
 
+
+# Copied from https://github.com/lucidrains/RETRO-pytorch.retro_pytorch
 class FeedForward(nn.Module):
-    def __init__(self, dim, mult = 4, dropout = 0.):
+    def __init__(self, dim, mult=4, dropout=0.):
         super().__init__()
         inner_dim = int(mult * dim)
 
@@ -552,15 +567,16 @@ class FeedForward(nn.Module):
         return self.ff(x)
 
 
+# Copied from https://github.com/lucidrains/RETRO-pytorch.retro_pytorch
 class Re_gptEncoder(nn.Module):
     def __init__(
         self,
         config,
-        norm_klass = RMSNorm,
-        post_norm = False,
-        scale_residual = 1.,
-        causal = False,
-        final_norm = True
+        norm_klass=RMSNorm,
+        post_norm=False,
+        scale_residual=1.,
+        causal=False,
+        final_norm=True
     ):
         super().__init__()
         self.layers = nn.ModuleList([])
@@ -576,38 +592,33 @@ class Re_gptEncoder(nn.Module):
         enc_ff_dropout = config.enc_ff_dropout
         # partial rotary embeddings, which is better than full rotary
         # Wang and Komatsuzaki et al https://github.com/kingoflolz/mesh-transformer-jax/
-
         rotary_emb_dim = min(dim_head, MIN_DIM_HEAD)
         self.rotary_pos_emb = RotaryEmbedding(rotary_emb_dim)
 
-        wrapper = partial(PreNorm, enc_dim, norm_klass = norm_klass) if not post_norm else partial(PostNorm, enc_dim, scale_residual = scale_residual, norm_klass = norm_klass)
+        wrapper = partial(PreNorm, enc_dim, norm_klass=norm_klass) if not post_norm else partial(PostNorm, enc_dim, scale_residual=scale_residual, norm_klass=norm_klass)
 
         for layer_num in range(1, enc_depth + 1):
             has_cross_attn = not exists(cross_attn_layers) or layer_num in cross_attn_layers
             self.layers.append(nn.ModuleList([
-                wrapper(Attention(dim = enc_dim, dim_head = dim_head, heads = enc_heads, dropout = attn_dropout, causal = causal)),
-                wrapper(Attention(dim = enc_dim, context_dim = context_dim, dim_head = dim_head, heads = enc_heads, dropout = attn_dropout)) if has_cross_attn else None,
-                wrapper(FeedForward(dim = enc_dim, mult = ff_mult, dropout = enc_ff_dropout)),
+                wrapper(Attention(dim=enc_dim, dim_head=dim_head, heads=enc_heads, dropout=attn_dropout, causal=causal)),
+                wrapper(Attention(dim=enc_dim, context_dim=context_dim, dim_head=dim_head, heads=enc_heads, dropout=attn_dropout)) if has_cross_attn else None,
+                wrapper(FeedForward(dim=enc_dim, mult=ff_mult, dropout=enc_ff_dropout)),
             ]))
-
         self.norm_out = norm_klass(enc_dim) if final_norm and not post_norm else nn.Identity()
         self.project_out = nn.Linear(enc_dim, hidden_size) if exists(hidden_size) else nn.Identity()
 
-    def forward(self, x, *, mask = None, chunked_seq):
+    def forward(self, x, *, mask=None, chunked_seq):
         device, chunk_size, seq_len = x.device, x.shape[-2], chunked_seq.shape[-2]
-
-        q_pos_emb = self.rotary_pos_emb(chunk_size, device = device)
-        k_pos_emb = self.rotary_pos_emb(seq_len, device = device)
-
+        q_pos_emb = self.rotary_pos_emb(chunk_size, device=device)
+        k_pos_emb = self.rotary_pos_emb(seq_len, device=device)
         for attn, cross_attn, ff in self.layers:
-            x = attn(x, mask = mask, pos_emb = q_pos_emb)
+            x = attn(x, mask=mask, pos_emb=q_pos_emb)
             if exists(cross_attn):
-                x = cross_attn(x, context = chunked_seq, pos_emb = (q_pos_emb, k_pos_emb))
-
+                x = cross_attn(x, context=chunked_seq, pos_emb=(q_pos_emb, k_pos_emb))
             x = ff(x)
-
         x = self.norm_out(x)
         return self.project_out(x)
+
 
 # Copied from transformers.models.gpt_neo.modeling_gpt_neo.GPTNeoBlock with GPTNeo->Re_gpt
 class Re_gptBlock(nn.Module):
@@ -619,20 +630,16 @@ class Re_gptBlock(nn.Module):
         self.attn = Re_gptAttention(config, layer_id)
         self.ln_2 = nn.LayerNorm(hidden_size, eps=config.layer_norm_epsilon)
         self.mlp = Re_gptMLP(inner_dim, config)
-        enc_dim = config.enc_dim
         hidden_size = config.hidden_size
         norm_klass = RMSNorm
         post_norm = False
         scale_residual = 1.
         dim = config.hidden_size
-        wrapper = partial(PreNorm, dim, norm_klass = norm_klass) if not post_norm else partial(PostNorm, dim, scale_residual = scale_residual, norm_klass = norm_klass)
+        wrapper = partial(PreNorm, dim, norm_klass=norm_klass) if not post_norm else partial(PostNorm, dim, scale_residual=scale_residual, norm_klass=norm_klass)
         if layer_id in config.dec_cross_attn_layers:
-            #if layer_id == 5:
-            #self.cross_attn = ChunkedCrossAttention(config)
             self.cross_attn = wrapper(ChunkedCrossAttention(config))
         else:
             self.cross_attn = None
-        
         self.chunk_size = config.chunk_size
         self.dim_head = config.dim_head
 
@@ -650,14 +657,10 @@ class Re_gptBlock(nn.Module):
         encoder_retrieved_mask=None,
         context_mask=None,
         cross_attn_pos_emb=None
-    ):  
-        rotary_emb_dim = min(self.dim_head, MIN_DIM_HEAD)
-        #self.rotary_pos_emb = RotaryEmbedding(rotary_emb_dim)
-        device, seq_len = hidden_states.device, hidden_states.shape[-2]
+    ):
+        seq_len = hidden_states.shape[-2]
         num_seq_chunks = seq_len // self.chunk_size
         seq_index = num_seq_chunks * self.chunk_size
-
-
         residual = hidden_states
         hidden_states = self.ln_1(hidden_states)
         attn_outputs = self.attn(
@@ -672,30 +675,24 @@ class Re_gptBlock(nn.Module):
         outputs = attn_outputs[1:]
         # residual connection
         hidden_states = attn_output + residual
-
         residual = hidden_states
         hidden_states = self.ln_2(hidden_states)
-
 
         if exists(self.cross_attn) and exists(retrieval):
             num_chunks, num_neighbors, chunk_size = retrieval.shape[-4:-1]
             if not retrieved_encoded:
                 retrieval = rearrange(retrieval, 'b k r n d -> (b k r) n d')
-                seq_as_context = repeat(hidden_states[:, :seq_index], 'b (k n) d -> (b k r) n d', n = self.chunk_size, r = num_neighbors)
-
-                retrieval = encoder(retrieval, mask = encoder_retrieved_mask, chunked_seq = seq_as_context)
-                retrieval = rearrange(retrieval, '(b k r) n d -> b k r n d', k = num_chunks, r = num_neighbors)
+                seq_as_context = repeat(hidden_states[:, :seq_index], 'b (k n) d -> (b k r) n d', n=self.chunk_size, r=num_neighbors)
+                retrieval = encoder(retrieval, mask=encoder_retrieved_mask, chunked_seq=seq_as_context)
+                retrieval = rearrange(retrieval, '(b k r) n d -> b k r n d', k=num_chunks, r=num_neighbors)
                 retrieved_encoded = True
 
-            residual_cca = hidden_states
             hidden_states = self.cross_attn(
                     hidden_states,
-                    context = retrieval,
-                    context_mask = context_mask,
-                    pos_emb = cross_attn_pos_emb
-                    )
-            """r_weight = 0.5
-            hidden_states = hidden_states * float(r_weight) + residual_cca * float(1-r_weight)"""
+                    context=retrieval,
+                    context_mask=context_mask,
+                    pos_emb=cross_attn_pos_emb,
+            )
         feed_forward_hidden_states = self.mlp(hidden_states)
         # residual connection
         hidden_states = residual + feed_forward_hidden_states
@@ -705,7 +702,7 @@ class Re_gptBlock(nn.Module):
         else:
             outputs = (hidden_states,) + outputs[1:]
 
-        return outputs,retrieved_encoded  # hidden_states, present, (attentions, cross_attentions)
+        return outputs, retrieved_encoded  # hidden_states, present, (attentions, cross_attentions)
 
 
 # Copied from transformers.models.gpt_neo.modeling_gpt_neo.GPTNeoPreTrainedModel with GPTNeo->Re_gpt,gpt_neo->re_gpt
@@ -764,7 +761,7 @@ RE_GPT_START_DOCSTRING = r"""
 RE_GPT_INPUTS_DOCSTRING = r"""
     Args:
         input_ids (`torch.LongTensor` of shape `(batch_size, input_ids_length)`):
-            `input_ids_length` = `sequence_length` if `past_key_values` is `None` else
+            `input_ids_length`=`sequence_length` if `past_key_values` is `None` else
             `past_key_values[0][0].shape[-2]` (`sequence_length` of input past key value states). Indices of input
             sequence tokens in the vocabulary.
 
@@ -948,7 +945,7 @@ class Re_gptModel(Re_gptPreTrainedModel):
         hidden_states = inputs_embeds + position_embeds
 
         if retrieval is not None:
-            n, num_chunks, num_neighbors, chunk_size, retrieved_shape, device = hidden_states.shape[1], *retrieval.shape[-3:], hidden_states.shape, hidden_states.device
+            n, num_chunks, num_neighbors, chunk_size, device = hidden_states.shape[1], *retrieval.shape[-3:], hidden_states.device
             assert chunk_size >= self.chunk_size, 'chunk size of retrieval input must be greater or equal to the designated chunk_size on RETRO initialization'
 
             num_seq_chunks = n // self.chunk_size
@@ -972,12 +969,11 @@ class Re_gptModel(Re_gptPreTrainedModel):
         if exists(retrieval):
             num_chunks, num_neighbors, chunk_size = retrieval.shape[-4:-1]
 
-            cross_attn_q_pos_emb = self.rotary_pos_emb(self.chunk_size, device = device, offset = self.chunk_size - 1)  # need to add extra chunk size, since it will be shifted
-            cross_attn_k_pos_emb = self.rotary_pos_emb(chunk_size, device = device)
+            cross_attn_q_pos_emb = self.rotary_pos_emb(self.chunk_size, device=device, offset=self.chunk_size - 1)  # need to add extra chunk size, since it will be shifted
+            cross_attn_k_pos_emb = self.rotary_pos_emb(chunk_size, device=device)
 
             cross_attn_pos_emb = (cross_attn_q_pos_emb, cross_attn_k_pos_emb)
         # handle masks for encoder and decoder, if needed
-        
         encoder_retrieved_mask = decoder_retrieved_mask = None
         for i, (block, layer_past) in enumerate(zip(self.h, past_key_values)):
             if output_hidden_states:
@@ -1006,12 +1002,12 @@ class Re_gptModel(Re_gptPreTrainedModel):
                     head_mask[i],
                 )
             else:
-                outputs,retrieved_encoded = block(
+                outputs, retrieved_encoded = block(
                     hidden_states,
                     encoder=self.encoder,
                     retrieval=retrieval,
-                    context_mask = decoder_retrieved_mask,
-                    encoder_retrieved_mask = encoder_retrieved_mask,
+                    context_mask=decoder_retrieved_mask,
+                    encoder_retrieved_mask=encoder_retrieved_mask,
                     retrieved_encoded=retrieved_encoded,
                     layer_past=layer_past,
                     attention_mask=attention_mask,
@@ -1129,15 +1125,14 @@ class Re_gptForCausalLM(Re_gptPreTrainedModel):
         r"""
         labels (`torch.LongTensor` of shape `(batch_size, sequence_length)`, *optional*):
             Labels for language modeling. Note that the labels **are shifted** inside the model, i.e. you can set
-            `labels = input_ids` Indices are selected in `[-100, 0, ..., config.vocab_size]` All labels set to `-100`
+            `labels=input_ids` Indices are selected in `[-100, 0, ..., config.vocab_size]` All labels set to `-100`
             are ignored (masked), the loss is only computed for labels in `[0, ..., config.vocab_size]`
         """
-        
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
         transformer_outputs = self.transformer(
             input_ids,
-            retrieval = retrieval,
+            retrieval=retrieval,
             past_key_values=past_key_values,
             attention_mask=attention_mask,
             token_type_ids=token_type_ids,
