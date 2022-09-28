@@ -223,6 +223,7 @@ _import_structure = {
     "models.glpn": ["GLPN_PRETRAINED_CONFIG_ARCHIVE_MAP", "GLPNConfig"],
     "models.gpt2": ["GPT2_PRETRAINED_CONFIG_ARCHIVE_MAP", "GPT2Config", "GPT2Tokenizer"],
     "models.gpt_neo": ["GPT_NEO_PRETRAINED_CONFIG_ARCHIVE_MAP", "GPTNeoConfig"],
+    "models.re_gpt": ["RE_GPT_PRETRAINED_CONFIG_ARCHIVE_MAP", "Re_gptConfig"],
     "models.gpt_neox": ["GPT_NEOX_PRETRAINED_CONFIG_ARCHIVE_MAP", "GPTNeoXConfig"],
     "models.gptj": ["GPTJ_PRETRAINED_CONFIG_ARCHIVE_MAP", "GPTJConfig"],
     "models.groupvit": [
@@ -1271,6 +1272,16 @@ else:
             "GPTNeoModel",
             "GPTNeoPreTrainedModel",
             "load_tf_weights_in_gpt_neo",
+        ]
+    )
+    _import_structure["models.re_gpt"].extend(
+        [
+            "RE_GPT_PRETRAINED_MODEL_ARCHIVE_LIST",
+            "Re_gptForCausalLM",
+            "Re_gptForSequenceClassification",
+            "Re_gptModel",
+            "Re_gptPreTrainedModel",
+            "load_tf_weights_in_re_gpt",
         ]
     )
     _import_structure["models.gpt_neox"].extend(
@@ -2853,6 +2864,9 @@ else:
     _import_structure["models.gpt_neo"].extend(
         ["FlaxGPTNeoForCausalLM", "FlaxGPTNeoModel", "FlaxGPTNeoPreTrainedModel"]
     )
+    _import_structure["models.re_gpt"].extend(
+        ["FlaxRe_gptForCausalLM", "FlaxRe_gptModel", "FlaxRe_gptPreTrainedModel"]
+    )
     _import_structure["models.gptj"].extend(["FlaxGPTJForCausalLM", "FlaxGPTJModel", "FlaxGPTJPreTrainedModel"])
     _import_structure["models.longt5"].extend(
         ["FlaxLongT5ForConditionalGeneration", "FlaxLongT5Model", "FlaxLongT5PreTrainedModel"]
@@ -3103,6 +3117,7 @@ if TYPE_CHECKING:
     from .models.glpn import GLPN_PRETRAINED_CONFIG_ARCHIVE_MAP, GLPNConfig
     from .models.gpt2 import GPT2_PRETRAINED_CONFIG_ARCHIVE_MAP, GPT2Config, GPT2Tokenizer
     from .models.gpt_neo import GPT_NEO_PRETRAINED_CONFIG_ARCHIVE_MAP, GPTNeoConfig
+    from .models.re_gpt import RE_GPT_PRETRAINED_CONFIG_ARCHIVE_MAP, Re_gptConfig
     from .models.gpt_neox import GPT_NEOX_PRETRAINED_CONFIG_ARCHIVE_MAP, GPTNeoXConfig
     from .models.gptj import GPTJ_PRETRAINED_CONFIG_ARCHIVE_MAP, GPTJConfig
     from .models.groupvit import (
@@ -3984,6 +3999,14 @@ if TYPE_CHECKING:
             GPTNeoModel,
             GPTNeoPreTrainedModel,
             load_tf_weights_in_gpt_neo,
+        )
+        from .models.re_gpt import (
+            RE_GPT_PRETRAINED_MODEL_ARCHIVE_LIST,
+            Re_gptForCausalLM,
+            Re_gptForSequenceClassification,
+            Re_gptModel,
+            Re_gptPreTrainedModel,
+            load_tf_weights_in_re_gpt,
         )
         from .models.gpt_neox import (
             GPT_NEOX_PRETRAINED_MODEL_ARCHIVE_LIST,
@@ -5273,6 +5296,7 @@ if TYPE_CHECKING:
         from .models.encoder_decoder import FlaxEncoderDecoderModel
         from .models.gpt2 import FlaxGPT2LMHeadModel, FlaxGPT2Model, FlaxGPT2PreTrainedModel
         from .models.gpt_neo import FlaxGPTNeoForCausalLM, FlaxGPTNeoModel, FlaxGPTNeoPreTrainedModel
+        from .models.re_gpt import FlaxRe_gptForCausalLM, FlaxRe_gptModel, FlaxRe_gptPreTrainedModel
         from .models.gptj import FlaxGPTJForCausalLM, FlaxGPTJModel, FlaxGPTJPreTrainedModel
         from .models.longt5 import FlaxLongT5ForConditionalGeneration, FlaxLongT5Model, FlaxLongT5PreTrainedModel
         from .models.marian import FlaxMarianModel, FlaxMarianMTModel, FlaxMarianPreTrainedModel
