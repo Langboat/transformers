@@ -66,6 +66,7 @@ from . import (
     glpn,
     gpt2,
     gpt_neo,
+    re_gpt,
     gpt_neox,
     gptj,
     groupvit,
